@@ -50,7 +50,6 @@ SlidingCounter.increment = function(key, windowInSeconds, callback) {
         ["zadd", key, now , makeid(now)],
         ["expire", key, "86400"]  //1 day
     ]).exec(function (err, replies) {
-        console.log(replies);
         return callback(err, replies);
     });
 };
