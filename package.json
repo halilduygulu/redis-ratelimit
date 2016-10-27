@@ -1,0 +1,25 @@
+{
+  "name": "redis-sliding-window-counter",
+  "version": "0.1.0",
+  "description": "Sliding window counter based on redis sorted sets",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/halilduygulu/redis-sliding-window-counter-nodejs/"
+  },
+  "keywords": [
+    "rate",
+    "limit",
+    "Sliding window",
+    "redis",
+    "sorted",
+    "set"
+  ],
+  "author": "Halil Duygulu",
+  "license": "MIT",
+  "dependencies": {
+    "redis": "~0.12.1",
+    "async": "~0.9.0",
+    "hiredis": "~0.4.1"
+  }
+}
