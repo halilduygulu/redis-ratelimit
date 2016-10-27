@@ -1,16 +1,15 @@
 'use strict';
 
 var redis = require('redis');
-var async = require('async');
 
-var RateLimit = {};
+var SlidingCounter = {};
 
 var defaultPort = 6379;
 var defaultHost = '127.0.0.1';
 
 var redisClient;
 
-RateLimit.configure = function(port, host, options) {
+SlidingCounter.configure = function(port, host, options) {
     port = port || 6379;
     host = host || '127.0.0.1';
 
@@ -18,19 +17,9 @@ RateLimit.configure = function(port, host, options) {
 };
 
 function _checkRedisClient() {
-    if(!redisClient)
-    {
+    if(!redisClient){
         redisClient = redis.createClient(defaultPort, defaultHost);
     }
-}
-
-function _expire(key, windowInSeconds, callback) {
-    _checkRedisClient();
-
-    var now = new Date().getTime();
-    var expires = now - (windowInSeconds * 1000);
-
-    redisClient.zremrangebyscore(key, '-inf', expires, callback);
 }
 
 function _getCardinality(key, callback) {
@@ -38,53 +27,36 @@ function _getCardinality(key, callback) {
     redisClient.zcard(key, callback);
 }
 
-function makeid(){
+//to prevent same millisecond increments
+function makeid(timems){
     var text = "";
     var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
     for( var i=0; i < 5; i++ )
         text += possible.charAt(Math.floor(Math.random() * possible.length));
 
-    return text;
-}
-function _addCall(key, callback) {
-    _checkRedisClient();
-    var now = new Date().getTime();
-    redisClient.zadd(key, now, now+makeid(), callback);
+    return timems+text;
 }
 
-RateLimit.check = function(key, windowInSeconds, limit, callback) {
-    async.series({
-        delete: function(done) {
-            _expire(key, windowInSeconds, done);
-        },
-        cardinality: function(done) {
-            _getCardinality(key, done);
-        }
-    }, function(err, results) {
-        // If we have an error default to limited
-        if(err)
-        {
-            return callback(err, true);
-        }
-        else
-        {
-            if(results.cardinality < limit)
-            {
-                _addCall(key, function(err) {
-                    return callback(err, false);
-                });
-            }
-            else
-            {
-                return callback(null, true);
-            }
-        }
+SlidingCounter.increment = function(key, windowInSeconds, callback) {
+
+    _checkRedisClient();
+
+    var now = new Date().getTime();
+    var expires = now - (windowInSeconds * 1000);
+
+    redisClient.multi([
+        ["zremrangebyscore", key, '-inf', expires],
+        ["zadd", key, now , makeid(now)],
+        ["expire", key, "86400"]  //1 day
+    ]).exec(function (err, replies) {
+        console.log(replies);
+        return callback(err, replies);
     });
 };
 
-RateLimit.count = function(key, callback) {
+SlidingCounter.count = function(key, callback) {
     _getCardinality(key, callback);
 };
 
-module.exports = RateLimit;
+module.exports = SlidingCounter;
